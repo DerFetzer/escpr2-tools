@@ -1,5 +1,6 @@
 import struct
 import unittest
+from decode_escpr import print_single
 
 
 EPS_MSID_A4 = 0
@@ -240,9 +241,17 @@ class ModifySetQ:
     def request(self, flow):
         if flow.request.method == "POST":
             print("detected POST")
-            if bytes([0x02, 0x00, 0x00, 0x06]) in flow.request.content:
-                print("detected Send-Document")
+            if bytes([0x01, 0x01, 0x00, 0x06]) in flow.request.content:
+                # Win
+                print("detected Send-Document IPPv1.1")
                 content = flow.request.content
+                print_single(content)
+            if bytes([0x02, 0x00, 0x00, 0x06]) in flow.request.content:
+                # Linux
+                print("detected Send-Document IPPv2")
+                content = flow.request.content
+                print_single(content)
+
                 before, sep, after = content.partition(
                     bytes([0x1B, 0x70, 0x00, 0x00, 0x00, 0x00, 0x73, 0x74, 0x74, 0x70])
                 )
