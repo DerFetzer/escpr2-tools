@@ -123,8 +123,8 @@ class EscprCommandJSetj(EscprCommand):
     PARAMETER_DEFS: list[str | tuple[str, str]] = [
         ("PaperWidth", ">I"),
         ("PaperLength", ">I"),
-        ("TopMargin", ">H"),
-        ("LeftMargin", ">H"),
+        ("TopMargin", ">h"),
+        ("LeftMargin", ">h"),
         ("PrintableAreaWidth", ">I"),
         ("PrintableAreaLength", ">I"),
         "InResolution",
