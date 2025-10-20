@@ -82,6 +82,21 @@ class EscprCommand:
     def __ne__(self, value: object, /) -> bool:
         return not self.__eq__(value)
 
+    def __bytes__(self) -> bytes:
+        b = b"\x1b" + self.get_command_header()
+        for parameter_def in self.PARAMETER_DEFS:
+            if isinstance(parameter_def, str):
+                parameter_name = parameter_def
+                fmt = "B"
+            elif isinstance(parameter_def, tuple) and len(parameter_def) == 2:
+                parameter_name = parameter_def[0]
+                fmt = parameter_def[1]
+            else:
+                raise RuntimeError(f"Invalid parameter definition: {parameter_def}")
+
+            b += struct.pack(fmt, self.parameters[parameter_name])
+        return b
+
 
 class EscprCommandUnknown:
     def __init__(self, header: bytes, params: bytes):
@@ -152,6 +167,7 @@ class EscprCommandMSeti(EscprCommand):
         ("PrintDensityForRubbingReductionPriority", ">H"),
         "BottomEdgePrintQualityPriority",
     ]
+
 
 class EscprCommandMSetiShort(EscprCommand):
     NAME: str = "MechaAdditionalInfoShort"
@@ -334,36 +350,46 @@ class TestEscprCommand(unittest.TestCase):
             cmd.check_parameter_defs()
 
     def test_j_setj(self):
-        cmd = EscprCommandJSetj(
-            bytes(
-                [
-                    0x00,
-                    0x00,
-                    0x17,
-                    0x40,
-                    0x00,
-                    0x00,
-                    0x20,
-                    0xE2,
-                    0x00,
-                    0x54,
-                    0x00,
-                    0x54,
-                    0x00,
-                    0x00,
-                    0x16,
-                    0x98,
-                    0x00,
-                    0x00,
-                    0x20,
-                    0x3A,
-                    0x01,
-                    0x00,
-                ]
-            )
+        data = bytes(
+            [
+                0x1B,
+                0x6A,
+                0x16,
+                0x00,
+                0x00,
+                0x00,
+                0x73,
+                0x65,
+                0x74,
+                0x6A,
+                0x00,
+                0x00,
+                0x0B,
+                0x40,
+                0x00,
+                0x00,
+                0x10,
+                0xE0,
+                0x00,
+                0x54,
+                0x00,
+                0x54,
+                0x00,
+                0x00,
+                0x0A,
+                0x98,
+                0x00,
+                0x00,
+                0x10,
+                0x38,
+                0x01,
+                0x00,
+            ]
         )
+        cmd = EscprCommandJSetj(data[10:])
         print(cmd.__str__())
         self.assertEqual(cmd.parameters["PaperWidth"], 5952)
+        self.assertEqual(cmd.__bytes__(), data)
 
     def test_p_setn(self):
         cmd = EscprCommandPSetn(b"\x01")
