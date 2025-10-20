@@ -1,6 +1,6 @@
 import sys
 
-from escpr_commands import COMMANDS, EscprCommand, EscprCommandUnknown
+from escpr2_tools.escpr_commands import COMMANDS, EscprCommand, EscprCommandUnknown
 
 
 def main() -> int:
@@ -18,7 +18,7 @@ def main() -> int:
             file_bytes = f.read()
         diff_two(ref_file_bytes, file_bytes)
     else:
-        return -1
+        raise ValueError("Call this program with one or two binary files")
 
     return 0
 
@@ -47,28 +47,37 @@ def diff_two(ref_file_bytes: bytes, file_bytes: bytes):
 
 
 def diff_commands_dicts(
-    ref_commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown], commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown]
+    ref_commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown],
+    commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown],
 ):
     for header, command in ref_commands_dict.items():
         if header not in commands_dict.keys():
-            print(f"\n{command.get_command_description()} is not in commands dict\n{str(command)}")
+            print(
+                f"\n{command.get_command_description()} is not in commands dict\n{str(command)}"
+            )
             continue
         elif command != commands_dict[header]:
             print(
                 f"\nArguments differ for {command.get_command_description()}:\n{str(command)}\n{str(commands_dict[header])}"
             )
         else:
-            print(f"\nArguments for {command.get_command_description()} are equal\n{str(command)}")
+            print(
+                f"\nArguments for {command.get_command_description()} are equal\n{str(command)}"
+            )
 
 
-def print_commands_dict(commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown]):
+def print_commands_dict(
+    commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown],
+):
     for _header, command in commands_dict.items():
         print(str(command))
 
         print()
 
 
-def get_commands_dict(file_bytes: bytes) -> dict[bytes, type[EscprCommand] | EscprCommandUnknown]:
+def get_commands_dict(
+    file_bytes: bytes,
+) -> dict[bytes, type[EscprCommand] | EscprCommandUnknown]:
     commands_dict: dict[bytes, type[EscprCommand] | EscprCommandUnknown] = {}
     commands = file_bytes.split(b"\x1b")
 
@@ -99,7 +108,3 @@ def get_commands_dict(file_bytes: bytes) -> dict[bytes, type[EscprCommand] | Esc
             commands_dict[header] = EscprCommandUnknown(header, params)
 
     return commands_dict
-
-
-if __name__ == "__main__":
-    sys.exit(main())
