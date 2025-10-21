@@ -27,7 +27,14 @@ from escpr2_tools.constants import PAPER_SIZES
 from escpr2_tools.decode_escpr import print_single
 from mitmproxy.tools.dump import DumpMaster
 
-from escpr2_tools.escpr_commands import EscprCommandJSetj, EscprCommandPSttp, EscprCommandPSetq
+from escpr2_tools.escpr_commands import (
+    EscprCommandJSetj,
+    EscprCommandMSeti,
+    EscprCommandMSetm,
+    EscprCommandPSttp,
+    EscprCommandPSetq,
+    EscprCommandUChku,
+)
 
 
 def get_paper_size_id(buf: bytes) -> int | None:
@@ -68,46 +75,17 @@ class ModifySendDocument:
                 if sep:
                     print("p-sttp found")
                     p_setq = EscprCommandPSetq()
-                    p_setq.parameters["ColorPlane"] = 0x03
-                    p_setq.parameters["LUT"] = 0x04
-                    p_setq.parameters["GammaCorrect"] = 0xDC
+                    p_setq.ColorPlane = 0x03
+                    p_setq.LUT = 0x04
+                    p_setq.GammaCorrect = 0xDC
 
-                    content = (
-                        before
-                        + sep
-                        + bytes(
-                            [
-                                0x1B,
-                                0x70,
-                                0x0C,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x73,
-                                0x65,
-                                0x74,
-                                0x71,
-                                0x00,
-                                0x03,
-                                0x04,
-                                0x00,
-                                0xDC,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x00,
-                            ]
-                        )
-                        + after
-                    )
+                    content = before + sep + p_setq.__bytes__() + after
+
                 before, sep, after = content.partition(
-                    bytes([0x1B, 0x6A, 0x16, 0x00, 0x00, 0x00, 0x73, 0x65, 0x74, 0x6A])
+                    EscprCommandJSetj.get_esc_command_header()
                 )
                 if sep:
-                    print("2nd separator found")
+                    print("j-setj found")
                     paper_size_id = get_paper_size_id(content)
                     print(f"paper_size_id: {paper_size_id}")
                     if paper_size_id is None:
@@ -117,60 +95,20 @@ class ModifySendDocument:
 
                     # m-seti + m-setm + u-chku
                     # Works only with all three
+                    m_seti = EscprCommandMSeti()
+
+                    m_setm = EscprCommandMSetm()
+                    m_setm.MediaSizeID = paper_size_id
+                    m_setm.DocumentType = 0x63
+
+                    u_chku = EscprCommandUChku()
+                    u_chku.NonCheckPrintMode = 1
+
                     content = (
                         before
-                        + bytes(
-                            [
-                                0x1B,
-                                0x6D,
-                                0x01,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x73,
-                                0x65,
-                                0x74,
-                                0x69,
-                                0x00,
-                            ]
-                        )
-                        + bytes(
-                            [
-                                0x1B,
-                                0x6D,
-                                0x07,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x73,
-                                0x65,
-                                0x74,
-                                0x6D,
-                                paper_size_id,  # paper size index: j-setj [2:4] -> width, [6:8] -> length
-                                0x00,
-                                0x00,
-                                0x63,
-                                0x00,
-                                0x00,
-                                0x00,
-                            ]
-                        )
-                        + bytes(
-                            [
-                                0x1B,
-                                0x75,
-                                0x02,
-                                0x00,
-                                0x00,
-                                0x00,
-                                0x63,
-                                0x68,
-                                0x6B,
-                                0x75,
-                                0x01,
-                                0x00,
-                            ]
-                        )
+                        + m_seti.__bytes__()
+                        + m_setm.__bytes__()
+                        + u_chku.__bytes__()
                         + sep
                         + after
                     )

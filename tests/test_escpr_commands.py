@@ -46,16 +46,16 @@ def test_j_setj():
     )
     cmd = EscprCommandJSetj(data[10:])
     print(cmd.__str__())
-    assert cmd.parameters["PaperWidth"] == 2880
+    assert cmd.PaperWidth == 2880
     assert cmd.__bytes__() == data
 
 
 def test_p_setn():
     cmd = EscprCommandPSetn(b"\x01")
     print(cmd.__str__())
-    assert cmd.parameters["NextPage"] == 1
+    assert cmd.NextPage == 1
 
 def test_p_setn_empty():
     cmd = EscprCommandPSetn()
     print(cmd.__str__())
-    assert cmd.parameters["NextPage"] == 0
+    assert cmd.NextPage == 0

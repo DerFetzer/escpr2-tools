@@ -47,40 +47,51 @@ class EscprCommand:
     def check_parameter_defs(cls):
         calc_param_len = 0
         for parameter_def in cls.PARAMETER_DEFS:
-            if isinstance(parameter_def, tuple):
-                param_len = struct.calcsize(parameter_def[1])
-            else:
-                param_len = 1
+            param_len = struct.calcsize(
+                cls.__get_name_and_fmt_from_def(parameter_def)[1]
+            )
             calc_param_len += param_len
         if calc_param_len != cls.PARAMETER_LENGTH:
             raise ValueError(
                 f"PARAMETER_LENGTH does not match calculated: {cls.PARAMETER_LENGTH} != {calc_param_len}"
             )
 
+    @classmethod
+    def __get_name_and_fmt_from_def(cls, parameter_def: str | tuple[str, str]):
+        if isinstance(parameter_def, str):
+            parameter_name = parameter_def
+            fmt = "B"
+        elif isinstance(parameter_def, tuple) and len(parameter_def) == 2:
+            parameter_name = parameter_def[0]
+            fmt = parameter_def[1]
+        else:
+            raise RuntimeError(f"Invalid parameter definition: {parameter_def}")
+        return parameter_name, fmt
+
     def __init__(self, params: bytes | None = None):
         self.check_parameter_defs()
 
         parameter_offset = 0
 
-        self.raw_parameters: bytes = params if params else bytes([0] * self.PARAMETER_LENGTH)
-        self.parameters: dict[str, int] = {}
+        self.raw_parameters: bytes = (
+            params if params else bytes([0] * self.PARAMETER_LENGTH)
+        )
         for parameter_def in self.PARAMETER_DEFS:
-            if isinstance(parameter_def, str):
-                parameter_name = parameter_def
-                fmt = "B"
-            elif isinstance(parameter_def, tuple) and len(parameter_def) == 2:
-                parameter_name = parameter_def[0]
-                fmt = parameter_def[1]
-            else:
-                raise RuntimeError(f"Invalid parameter definition: {parameter_def}")
-
-            self.parameters[parameter_name] = struct.unpack_from(
-                fmt, buffer=self.raw_parameters, offset=parameter_offset
-            )[0]
+            parameter_name, fmt = self.__get_name_and_fmt_from_def(parameter_def)
+            setattr(
+                self,
+                parameter_name,
+                struct.unpack_from(
+                    fmt, buffer=self.raw_parameters, offset=parameter_offset
+                )[0],
+            )
 
             parameter_offset += struct.calcsize(fmt)
         if parameter_offset != len(self.raw_parameters):
-            warn(f"Unused bytes remaining: {self.raw_parameters[parameter_offset:]}", RuntimeWarning)
+            warn(
+                f"Unused bytes remaining: {self.raw_parameters[parameter_offset:]}",
+                RuntimeWarning,
+            )
 
     def get_command_description(self) -> str:
         return f"{self.COMMAND_CLASS}-{self.COMMAND_NAME} ({self.NAME})"
@@ -88,8 +99,10 @@ class EscprCommand:
     @override
     def __str__(self) -> str:
         str_repr = f"{self.get_command_description()}: {{ "
-        for arg_key, arg_value in self.parameters.items():
-            str_repr += f"{arg_key}={arg_value} ({hex(arg_value)}), "
+        for parameter_def in self.PARAMETER_DEFS:
+            parameter_name, __fmt = self.__get_name_and_fmt_from_def(parameter_def)
+            parameter_value = getattr(self, parameter_name)
+            str_repr += f"{parameter_name}={parameter_value} ({hex(parameter_value)}), "
         str_repr = str_repr[:-2] + " }"
 
         return str_repr
@@ -108,16 +121,8 @@ class EscprCommand:
     def __bytes__(self) -> bytes:
         b = b"\x1b" + self.get_command_header()
         for parameter_def in self.PARAMETER_DEFS:
-            if isinstance(parameter_def, str):
-                parameter_name = parameter_def
-                fmt = "B"
-            elif isinstance(parameter_def, tuple) and len(parameter_def) == 2:
-                parameter_name = parameter_def[0]
-                fmt = parameter_def[1]
-            else:
-                raise RuntimeError(f"Invalid parameter definition: {parameter_def}")
-
-            b += struct.pack(fmt, self.parameters[parameter_name])
+            parameter_name, fmt = self.__get_name_and_fmt_from_def(parameter_def)
+            b += struct.pack(fmt, getattr(self, parameter_name))
         return b
 
 

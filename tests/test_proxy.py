@@ -1,5 +1,5 @@
 from escpr2_tools.constants import EPS_MSID_A4
-from escpr2_tools.escpr_commands import EscprCommandJSetj
+from escpr2_tools.escpr_commands import EscprCommandJSetj, EscprCommandPSetq
 from escpr2_tools.proxy import get_paper_size_id
 
 
@@ -131,6 +131,7 @@ def test_get_paper_size_id():
     )
     assert get_paper_size_id(buf) == EPS_MSID_A4
 
+
 def test_j_setj_header():
     j_setj_header = bytes(
         [
@@ -147,3 +148,38 @@ def test_j_setj_header():
         ]
     )
     assert j_setj_header == EscprCommandJSetj.get_esc_command_header()
+
+
+def test_p_setq():
+    b = bytes(
+        [
+            0x1B,
+            0x70,
+            0x0C,
+            0x00,
+            0x00,
+            0x00,
+            0x73,
+            0x65,
+            0x74,
+            0x71,
+            0x00,
+            0x03,
+            0x04,
+            0x00,
+            0xDC,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+        ]
+    )
+    p_setq = EscprCommandPSetq()
+    p_setq.ColorPlane = 0x03
+    p_setq.LUT = 0x04
+    p_setq.GammaCorrect = 0xDC
+
+    assert p_setq.__bytes__() == b
