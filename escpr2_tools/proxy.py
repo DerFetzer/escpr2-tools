@@ -39,15 +39,19 @@ from escpr2_tools.escpr_commands import (
 
 def get_paper_size_id(buf: bytes) -> int | None:
     j_setj_esc_header = EscprCommandJSetj.get_esc_command_header()
-    j_setj_parameter_offset = 10
 
     j_setj_start = buf.find(j_setj_esc_header)
 
     if j_setj_start != -1:
-        width_start = j_setj_start + j_setj_parameter_offset + 2
-        heigth_start = width_start + 4
-        (width,) = struct.unpack(">H", buf[width_start : width_start + 2])
-        (height,) = struct.unpack(">H", buf[heigth_start : heigth_start + 2])
+        j_setj_param_start = j_setj_start + len(j_setj_esc_header)
+        j_setj = EscprCommandJSetj(
+            buf[
+                j_setj_param_start : j_setj_param_start
+                + EscprCommandJSetj.PARAMETER_LENGTH
+            ]
+        )
+        width = j_setj.PaperWidth
+        height = j_setj.PaperLength
         print(f"Paper size: {width}x{height}")
         return PAPER_SIZES.get((width, height))
     else:
