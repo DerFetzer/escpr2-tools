@@ -1,5 +1,4 @@
 use std::{
-    collections::VecDeque,
     error::Error,
     net::UdpSocket,
     sync::{Arc, Mutex},
