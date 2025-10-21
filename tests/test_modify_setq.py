@@ -1,5 +1,5 @@
 from escpr2_tools.constants import EPS_MSID_A4
-from escpr2_tools.modify_setq import get_paper_size_id
+from escpr2_tools.proxy import get_paper_size_id
 
 
 def test_get_paper_size_id():

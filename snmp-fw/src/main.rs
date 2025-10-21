@@ -5,10 +5,23 @@ use std::{
     time::Duration,
 };
 
+use argh::FromArgs;
+
+#[derive(FromArgs)]
+/// Forward SNMP packets to printer and responses back
+struct Cli {
+    #[argh(positional)]
+    printer_address: String,
+    #[argh(positional)]
+    local_address: String,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let listen_socket = UdpSocket::bind("192.168.178.42:161")?;
+    let args: Cli = argh::from_env();
+
+    let listen_socket = UdpSocket::bind(format!("{}:161", args.local_address))?;
     let listen_socket2 = listen_socket.try_clone()?;
-    let forward_socket = UdpSocket::bind("192.168.178.42:5954")?;
+    let forward_socket = UdpSocket::bind(format!("{}:5954", args.local_address))?;
     let forward_socket2 = forward_socket.try_clone()?;
 
     let addr = Arc::new(Mutex::new(None));
@@ -20,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let (amt, current_addr) = listen_socket.recv_from(&mut buf).unwrap();
             *addr.lock().unwrap() = Some(current_addr);
             forward_socket
-                .send_to(&buf[..amt], "192.168.178.197:161")
+                .send_to(&buf[..amt], format!("{}:161", args.printer_address))
                 .unwrap();
         }
     });
@@ -35,6 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
+    println!("Started threads");
     loop {
         std::thread::sleep(Duration::from_secs(1));
     }

@@ -13,7 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-decode-escpr = "escpr2_tools.decode_escpr:main"
+decode-escpr2 = "escpr2_tools.decode_escpr:main"
+escpr2-proxy = "escpr2_tools.proxy:main"
 
 [dependency-groups]
 dev = [

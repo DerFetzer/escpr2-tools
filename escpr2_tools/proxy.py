@@ -17,10 +17,15 @@
 # escpr2-tools. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import argparse
+import asyncio
 import struct
+
+from mitmproxy.options import Options
 
 from escpr2_tools.constants import PAPER_SIZES
 from escpr2_tools.decode_escpr import print_single
+from mitmproxy.tools.dump import DumpMaster
 
 
 def get_paper_size_id(buf: bytes) -> int | None:
@@ -180,3 +185,30 @@ class ModifySetQ:
 
 
 addons = [ModifySetQ()]
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="escpr2-proxy",
+        description="Spawns a proxy to inspect and manipulate escpr2 commands inside IPP.",
+    )
+    parser.add_argument("printer_address")
+    parser.add_argument("local_address")
+    args = parser.parse_args()
+
+    proxy_mode = f"reverse:https://{args.printer_address}:631@{args.local_address}:631"
+
+    try:
+        asyncio.run(__start_proxy(proxy_mode))
+    except KeyboardInterrupt:
+        print("Stopping proxy...")
+
+async def __start_proxy(proxy_mode: str):
+    opts = Options(mode=[proxy_mode], ssl_insecure=True)
+    proxy = DumpMaster(opts)
+    proxy.addons.add(ModifySetQ())
+
+    print("Starting proxy...")
+    await proxy.run()
+    print("Stopping proxy...")
+

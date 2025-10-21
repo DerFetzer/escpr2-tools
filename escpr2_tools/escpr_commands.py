@@ -83,7 +83,7 @@ class EscprCommand:
 
     @override
     def __str__(self) -> str:
-        str_repr = f"{self.get_command_description()}): {{ "
+        str_repr = f"{self.get_command_description()}: {{ "
         for arg_key, arg_value in self.parameters.items():
             str_repr += f"{arg_key}={arg_value} ({hex(arg_value)}), "
         str_repr = str_repr[:-2] + " }"
