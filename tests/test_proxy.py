@@ -1,4 +1,5 @@
 from escpr2_tools.constants import EPS_MSID_A4
+from escpr2_tools.escpr_commands import EscprCommandJSetj
 from escpr2_tools.proxy import get_paper_size_id
 
 
@@ -129,3 +130,20 @@ def test_get_paper_size_id():
         ]
     )
     assert get_paper_size_id(buf) == EPS_MSID_A4
+
+def test_j_setj_header():
+    j_setj_header = bytes(
+        [
+            0x1B,
+            0x6A,
+            0x16,
+            0x00,
+            0x00,
+            0x00,
+            0x73,
+            0x65,
+            0x74,
+            0x6A,
+        ]
+    )
+    assert j_setj_header == EscprCommandJSetj.get_esc_command_header()

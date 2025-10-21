@@ -54,3 +54,8 @@ def test_p_setn():
     cmd = EscprCommandPSetn(b"\x01")
     print(cmd.__str__())
     assert cmd.parameters["NextPage"] == 1
+
+def test_p_setn_empty():
+    cmd = EscprCommandPSetn()
+    print(cmd.__str__())
+    assert cmd.parameters["NextPage"] == 0

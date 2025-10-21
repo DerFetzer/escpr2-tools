@@ -40,6 +40,10 @@ class EscprCommand:
         )
 
     @classmethod
+    def get_esc_command_header(cls) -> bytes:
+        return b"\x1b" + cls.get_command_header()
+
+    @classmethod
     def check_parameter_defs(cls):
         calc_param_len = 0
         for parameter_def in cls.PARAMETER_DEFS:
@@ -53,12 +57,12 @@ class EscprCommand:
                 f"PARAMETER_LENGTH does not match calculated: {cls.PARAMETER_LENGTH} != {calc_param_len}"
             )
 
-    def __init__(self, params: bytes):
+    def __init__(self, params: bytes | None = None):
         self.check_parameter_defs()
 
         parameter_offset = 0
 
-        self.raw_parameters: bytes = params
+        self.raw_parameters: bytes = params if params else bytes([0] * self.PARAMETER_LENGTH)
         self.parameters: dict[str, int] = {}
         for parameter_def in self.PARAMETER_DEFS:
             if isinstance(parameter_def, str):
@@ -71,12 +75,12 @@ class EscprCommand:
                 raise RuntimeError(f"Invalid parameter definition: {parameter_def}")
 
             self.parameters[parameter_name] = struct.unpack_from(
-                fmt, buffer=params, offset=parameter_offset
+                fmt, buffer=self.raw_parameters, offset=parameter_offset
             )[0]
 
             parameter_offset += struct.calcsize(fmt)
-        if parameter_offset != len(params):
-            warn(f"Unused bytes remaining: {params[parameter_offset:]}", RuntimeWarning)
+        if parameter_offset != len(self.raw_parameters):
+            warn(f"Unused bytes remaining: {self.raw_parameters[parameter_offset:]}", RuntimeWarning)
 
     def get_command_description(self) -> str:
         return f"{self.COMMAND_CLASS}-{self.COMMAND_NAME} ({self.NAME})"
@@ -360,57 +364,3 @@ COMMANDS: dict[bytes, type[EscprCommand]] = {
     EscprCommandQSetq.get_command_header(): EscprCommandQSetq,
     EscprCommandUChku.get_command_header(): EscprCommandUChku,
 }
-
-
-class TestEscprCommand(unittest.TestCase):
-    def test_check_parameter_defs(self):
-        for cmd in COMMANDS.values():
-            print(cmd.NAME)
-            cmd.check_parameter_defs()
-
-    def test_j_setj(self):
-        data = bytes(
-            [
-                0x1B,
-                0x6A,
-                0x16,
-                0x00,
-                0x00,
-                0x00,
-                0x73,
-                0x65,
-                0x74,
-                0x6A,
-                0x00,
-                0x00,
-                0x0B,
-                0x40,
-                0x00,
-                0x00,
-                0x10,
-                0xE0,
-                0x00,
-                0x54,
-                0x00,
-                0x54,
-                0x00,
-                0x00,
-                0x0A,
-                0x98,
-                0x00,
-                0x00,
-                0x10,
-                0x38,
-                0x01,
-                0x00,
-            ]
-        )
-        cmd = EscprCommandJSetj(data[10:])
-        print(cmd.__str__())
-        self.assertEqual(cmd.parameters["PaperWidth"], 5952)
-        self.assertEqual(cmd.__bytes__(), data)
-
-    def test_p_setn(self):
-        cmd = EscprCommandPSetn(b"\x01")
-        print(cmd.__str__())
-        self.assertEqual(cmd.parameters["NextPage"], 1)

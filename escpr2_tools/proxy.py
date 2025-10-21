@@ -27,25 +27,14 @@ from escpr2_tools.constants import PAPER_SIZES
 from escpr2_tools.decode_escpr import print_single
 from mitmproxy.tools.dump import DumpMaster
 
+from escpr2_tools.escpr_commands import EscprCommandJSetj, EscprCommandPSttp, EscprCommandPSetq
+
 
 def get_paper_size_id(buf: bytes) -> int | None:
-    j_setj = bytes(
-        [
-            0x1B,
-            0x6A,
-            0x16,
-            0x00,
-            0x00,
-            0x00,
-            0x73,
-            0x65,
-            0x74,
-            0x6A,
-        ]
-    )
+    j_setj_esc_header = EscprCommandJSetj.get_esc_command_header()
     j_setj_parameter_offset = 10
 
-    j_setj_start = buf.find(j_setj)
+    j_setj_start = buf.find(j_setj_esc_header)
 
     if j_setj_start != -1:
         width_start = j_setj_start + j_setj_parameter_offset + 2
@@ -58,7 +47,7 @@ def get_paper_size_id(buf: bytes) -> int | None:
         return None
 
 
-class ModifySetQ:
+class ModifySendDocument:
     def request(self, flow):
         if flow.request.method == "POST":
             print("detected POST")
@@ -74,11 +63,15 @@ class ModifySetQ:
                 print_single(content)
 
                 before, sep, after = content.partition(
-                    bytes([0x1B, 0x70, 0x00, 0x00, 0x00, 0x00, 0x73, 0x74, 0x74, 0x70])
+                    EscprCommandPSttp.get_esc_command_header()
                 )
                 if sep:
-                    print("separator found")
-                    # q-setq
+                    print("p-sttp found")
+                    p_setq = EscprCommandPSetq()
+                    p_setq.parameters["ColorPlane"] = 0x03
+                    p_setq.parameters["LUT"] = 0x04
+                    p_setq.parameters["GammaCorrect"] = 0xDC
+
                     content = (
                         before
                         + sep
@@ -184,7 +177,7 @@ class ModifySetQ:
                 flow.request.set_content(content)
 
 
-addons = [ModifySetQ()]
+addons = [ModifySendDocument()]
 
 
 def main():
@@ -203,12 +196,12 @@ def main():
     except KeyboardInterrupt:
         print("Stopping proxy...")
 
+
 async def __start_proxy(proxy_mode: str):
     opts = Options(mode=[proxy_mode], ssl_insecure=True)
     proxy = DumpMaster(opts)
-    proxy.addons.add(ModifySetQ())
+    proxy.addons.add(ModifySendDocument())
 
     print("Starting proxy...")
     await proxy.run()
     print("Stopping proxy...")
-
