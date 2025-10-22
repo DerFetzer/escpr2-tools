@@ -19,11 +19,12 @@
 
 import argparse
 import asyncio
+from enum import Enum
 import struct
 
 from mitmproxy.options import Options
 
-from escpr2_tools.constants import PAPER_SIZES
+from escpr2_tools.constants import PAPER_LUT_AUTOMATIC, PAPER_SIZES
 from escpr2_tools.decode_escpr import print_single
 from mitmproxy.tools.dump import DumpMaster
 
@@ -34,6 +35,7 @@ from escpr2_tools.escpr_commands import (
     EscprCommandPSttp,
     EscprCommandPSetq,
     EscprCommandQSetb,
+    EscprCommandQSetq,
     EscprCommandUChku,
 )
 
@@ -59,10 +61,36 @@ def get_paper_size_id(buf: bytes) -> int | None:
         return None
 
 
-ABW = False
+def get_media_type_id(buf: bytes) -> int | None:
+    q_setq_esc_header = EscprCommandQSetq.get_esc_command_header()
+
+    q_setq_start = buf.find(q_setq_esc_header)
+
+    if q_setq_start != -1:
+        q_setq_param_start = q_setq_start + len(q_setq_esc_header)
+        q_setq = EscprCommandQSetq(
+            buf[
+                q_setq_param_start : q_setq_param_start
+                + EscprCommandQSetq.PARAMETER_LENGTH
+            ]
+        )
+        media_type_id = q_setq.MediaTypeID
+        print(f"Media type id: {media_type_id}")
+        return media_type_id
+    else:
+        return None
+
+
+class PrintMode(Enum):
+    Auto = 1
+    CmOff = 2
+    ABW = 3
+
 
 class ModifySendDocument:
     def request(self, flow):
+        mode = PrintMode.Auto
+
         if flow.request.method == "POST":
             print("detected POST")
             if bytes([0x01, 0x01, 0x00, 0x06]) in flow.request.content:
@@ -83,8 +111,17 @@ class ModifySendDocument:
                     print("p-sttp found")
                     p_setq = EscprCommandPSetq()
                     p_setq.ColorPlane = 0x03
-                    p_setq.LUT = 0x07 if ABW else 0x04
                     p_setq.GammaCorrect = 0xDC
+                    match mode:
+                        case PrintMode.Auto:
+                            media_type_id = get_media_type_id(content)
+                            if media_type_id is None:
+                                raise ValueError("Could not get media type id")
+                            p_setq.LUT = PAPER_LUT_AUTOMATIC.get(media_type_id, 6)
+                        case PrintMode.CmOff:
+                            p_setq.LUT = 0x04
+                        case PrintMode.ABW:
+                            p_setq.LUT = 0x07
 
                     content = before + sep + p_setq.__bytes__() + after
 
@@ -116,7 +153,7 @@ class ModifySendDocument:
 
                     content = (
                         before
-                        + (q_setb.__bytes__() if ABW else bytes())
+                        + (q_setb.__bytes__() if mode == PrintMode.ABW else bytes())
                         + m_seti.__bytes__()
                         + m_setm.__bytes__()
                         + u_chku.__bytes__()
