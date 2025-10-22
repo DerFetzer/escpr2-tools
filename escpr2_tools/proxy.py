@@ -33,6 +33,7 @@ from escpr2_tools.escpr_commands import (
     EscprCommandMSetm,
     EscprCommandPSttp,
     EscprCommandPSetq,
+    EscprCommandQSetb,
     EscprCommandUChku,
 )
 
@@ -58,6 +59,8 @@ def get_paper_size_id(buf: bytes) -> int | None:
         return None
 
 
+ABW = False
+
 class ModifySendDocument:
     def request(self, flow):
         if flow.request.method == "POST":
@@ -80,7 +83,7 @@ class ModifySendDocument:
                     print("p-sttp found")
                     p_setq = EscprCommandPSetq()
                     p_setq.ColorPlane = 0x03
-                    p_setq.LUT = 0x04
+                    p_setq.LUT = 0x07 if ABW else 0x04
                     p_setq.GammaCorrect = 0xDC
 
                     content = before + sep + p_setq.__bytes__() + after
@@ -108,14 +111,20 @@ class ModifySendDocument:
                     u_chku = EscprCommandUChku()
                     u_chku.NonCheckPrintMode = 1
 
+                    q_setb = EscprCommandQSetb()
+                    q_setb.MonoGamma = 0xDC
+
                     content = (
                         before
+                        + (q_setb.__bytes__() if ABW else bytes())
                         + m_seti.__bytes__()
                         + m_setm.__bytes__()
                         + u_chku.__bytes__()
                         + sep
                         + after
                     )
+                print("Modified:")
+                print_single(content)
                 flow.request.set_content(content)
 
 
