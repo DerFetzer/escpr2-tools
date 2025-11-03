@@ -19,11 +19,13 @@
 
 import argparse
 import asyncio
-from enum import Enum
+from pathlib import Path
 import struct
+from venv import create
 
 from mitmproxy.options import Options
 
+from escpr2_tools.config import Config, PrintMode
 from escpr2_tools.constants import PAPER_LUT_AUTOMATIC, PAPER_SIZES
 from escpr2_tools.decode_escpr import print_single
 from mitmproxy.tools.dump import DumpMaster
@@ -81,16 +83,11 @@ def get_media_type_id(buf: bytes) -> int | None:
         return None
 
 
-class PrintMode(Enum):
-    Auto = 1
-    CmOff = 2
-    ABW = 3
-
-
 class ModifySendDocument:
-    def request(self, flow):
-        mode = PrintMode.Auto
+    def __init__(self, config_path: Path) -> None:
+        self.config_path: Path = config_path
 
+    def request(self, flow):
         if flow.request.method == "POST":
             print("detected POST")
             if bytes([0x01, 0x01, 0x00, 0x06]) in flow.request.content:
@@ -103,6 +100,15 @@ class ModifySendDocument:
                 print("detected Send-Document IPPv2")
                 content = flow.request.content
                 print_single(content)
+
+                try:
+                    config = Config(self.config_path, create=False)
+                    mode = config.get_print_mode()
+                except IOError as e:
+                    print(f"Could not read config file: {e}")
+                    mode = PrintMode.Auto
+
+                print(f"Current print mode: {mode}")
 
                 before, sep, after = content.partition(
                     EscprCommandPSttp.get_esc_command_header()
@@ -165,9 +171,6 @@ class ModifySendDocument:
                 flow.request.set_content(content)
 
 
-addons = [ModifySendDocument()]
-
-
 def main():
     parser = argparse.ArgumentParser(
         prog="escpr2-proxy",
@@ -175,20 +178,21 @@ def main():
     )
     parser.add_argument("printer_address")
     parser.add_argument("local_address")
+    parser.add_argument("config_path")
     args = parser.parse_args()
 
     proxy_mode = f"reverse:https://{args.printer_address}:631@{args.local_address}:631"
 
     try:
-        asyncio.run(__start_proxy(proxy_mode))
+        asyncio.run(__start_proxy(proxy_mode, Path(args.config_path)))
     except KeyboardInterrupt:
         print("Stopping proxy...")
 
 
-async def __start_proxy(proxy_mode: str):
+async def __start_proxy(proxy_mode: str, config_path: Path):
     opts = Options(mode=[proxy_mode], ssl_insecure=True)
     proxy = DumpMaster(opts)
-    proxy.addons.add(ModifySendDocument())
+    proxy.addons.add(ModifySendDocument(config_path))
 
     print("Starting proxy...")
     await proxy.run()

@@ -9,12 +9,14 @@ license = "GPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mitmproxy (>=12.2.0,<13.0.0)"
+    "mitmproxy (>=12.2.0,<13.0.0)",
+    "tomlkit (>=0.13.3,<0.14.0)"
 ]
 
 [project.scripts]
 decode-escpr2 = "escpr2_tools.decode_escpr:main"
 escpr2-proxy = "escpr2_tools.proxy:main"
+escpr2-proxy-config = "escpr2_tools.config:set_config_cli"
 
 [dependency-groups]
 dev = [
